@@ -2,7 +2,7 @@
 
 use tfhe::gadget::{ciphertext::Ciphertext, server_key::ServerKey};
 
-pub fn auction_circuit(
+pub fn run_auction_circuit(
     server_key: &ServerKey,
     bids: &[Vec<Ciphertext>],
     bid_bits: usize,
@@ -89,7 +89,7 @@ mod tests {
 
         let now = std::time::Instant::now();
         let (winner_identity_bit, winning_amount_bits) =
-            auction_circuit(&server_key, &encrypts_bid_vector, bid_bits, bidders)?;
+            run_auction_circuit(&server_key, &encrypts_bid_vector, bid_bits, bidders)?;
         println!("Auction runtime: {}ms", now.elapsed().as_millis());
 
         // find the highest bidder amount
