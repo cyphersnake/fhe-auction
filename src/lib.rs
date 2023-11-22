@@ -1,8 +1,10 @@
+#![allow(clippy::needless_range_loop)]
+
 use tfhe::gadget::{ciphertext::Ciphertext, server_key::ServerKey};
 
-fn auction_circuit(
+pub fn auction_circuit(
     server_key: &ServerKey,
-    bids: &Vec<Vec<Ciphertext>>,
+    bids: &[Vec<Ciphertext>],
     bid_bits: usize,
     bidder_count: usize,
 ) -> Result<(Vec<Ciphertext>, Vec<Ciphertext>), Box<dyn std::error::Error>> {
@@ -10,7 +12,9 @@ fn auction_circuit(
 
     let mut w = vec![Ciphertext::Trivial(true); bidder_count];
     let mut s = vec![Ciphertext::Placeholder; bidder_count];
+
     let mut amount = vec![Ciphertext::Placeholder; bid_bits];
+
     for i in 0..bid_bits {
         // let now = std::time::Instant::now();
         for j in 0..bidder_count {
@@ -27,7 +31,8 @@ fn auction_circuit(
             b
         };
 
-        //  We require a multiplexer here and there are few ways to implement it:
+        // We require a multiplexer here and there are few ways to implement it:
+        //
         // 1. Circuit bootstrapping: Circuit bootstrap $b$ to a GGSW ciphertext and then use a single CMUX operation. However circuit bootstrapping itself requires $pbslevel$  bootstrapping operations + $pbslevel$ LWE -> RLWE key switching operations. Moreover, it requires private functional key switching keys. I don't think circuit bootstrapping improves runtime significantly such that it is worth it deal with its complexity + introducing more keys.
         // 2. Switch to 7-encoding space: In 7-encoding space this operation can be evaluated as single bootstrapping operation. However, p=7 requires 3 bit plaintext space thus doubling the bootstrapping runtime as compared to 2 bit plaintext space. Let bootstrapping runtime with 2-bit plaintext be x. Then evaluating AND + OR + MULTIPLEXER (MULTIPLEXER = $bs$ + $!bw$) takes 5x. With 3-bit plaintext space bootstrapping runtime equals 2x. Evaluating AND + OR + MULTIPLEXER (MULTIPLEXER is a single bootstrap) takes 5x. Thus, there's no benefit of switching to 7-encoding space.
         // 3. Rewriting multiplexer as $b * (s - w) + w$: This assumes ciphertexts are in canonical encoding (i.e. either 0/1 instead of 1/2). Switching from 1/2 to 0/1 is trivial since it requires a single plaintext subtraction by 1. However,  $s - w$ may equal -1 which will equal 2 in modulus 3. This forces lookup table to output to different values at same input (input: 1,0), which isn't possible.
@@ -59,10 +64,9 @@ mod tests {
     #[test]
     fn auction_circuit_works() -> Result<(), Box<dyn std::error::Error>> {
         let bidders = 50;
-        let BID_BITS = 64;
+        let bid_bits = 64;
 
         let bids = (0..bidders)
-            .into_iter()
             .map(|_| thread_rng().gen::<u64>())
             .collect::<Vec<u64>>();
 
@@ -74,10 +78,9 @@ mod tests {
             .iter()
             .map(|bid_amount| {
                 // encrypt bits from MSB to LSB
-                (0..BID_BITS)
-                    .into_iter()
+                (0..bid_bits)
                     .map(|i| {
-                        let bit_i = (bid_amount >> (BID_BITS - 1 - i)) & 1;
+                        let bit_i = (bid_amount >> (bid_bits - 1 - i)) & 1;
                         client_key.encrypt(bit_i != 0)
                     })
                     .collect::<Vec<Ciphertext>>()
@@ -86,7 +89,7 @@ mod tests {
 
         let now = std::time::Instant::now();
         let (winner_identity_bit, winning_amount_bits) =
-            auction_circuit(&server_key, &encrypts_bid_vector, BID_BITS, bidders)?;
+            auction_circuit(&server_key, &encrypts_bid_vector, bid_bits, bidders)?;
         println!("Auction runtime: {}ms", now.elapsed().as_millis());
 
         // find the highest bidder amount
@@ -107,8 +110,7 @@ mod tests {
             .enumerate()
             .for_each(|(index, ct)| {
                 let bit = client_key.decrypt(ct);
-                res_highest_bid_amount =
-                    res_highest_bid_amount + ((bit as u64) << (BID_BITS - 1 - index));
+                res_highest_bid_amount += (bit as u64) << (bid_bits - 1 - index);
             });
 
         // find returned winner id
