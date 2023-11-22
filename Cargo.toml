@@ -6,5 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tfhe = {git = "https://github.com/Janmajayamall/tfhe-rs.git", features = ["boolean", "shortint", "integer", "p-encoding","aarch64-unix"]}
 rand = "0.8.5"
+
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+tfhe = { git = "https://github.com/Janmajayamall/tfhe-rs.git", features = ["boolean", "shortint", "integer", "p-encoding","x86_64-unix"] }
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+tfhe = {git = "https://github.com/Janmajayamall/tfhe-rs.git", features = ["boolean", "shortint", "integer", "p-encoding","aarch64-unix"] }
+
